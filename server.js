@@ -1,13 +1,13 @@
 /*********************************************************************************
- *  WEB700 – Assignment 04
+ *  WEB700 – Assignment 06
  *  I declare that this assignment is my own work in accordance with Seneca  Academic Policy.  No part
  *  of this assignment has been copied manually or electronically from any other source
  *  (including 3rd party web sites) or distributed to other students.
  *
- *  Name: Andre Hideo Onoda Monteiro Student ID: 101947232 Date: 06/11/2024
+ *  Name: Andre Hideo Onoda Monteiro Student ID: 101947232 Date: 07/29/2024
  *
  ********************************************************************************/
-var HTTP_PORT = process.env.PORT || 8080;
+var HTTP_PORT = process.env.PORT || 8090;
 var express = require("express");
 const exphbs = require("express-handlebars");
 var path = require("path");
@@ -74,22 +74,38 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.get("/students", (req, res) => {
-  if (req.query.course) {
-    dataCollection
-      .getStudentsByCourse(req.query.course)
-      .then((result) => res.render("students", { students: result }))
-      .catch((err) => res.status(500).send({ message: "no results" }));
-  } else {
-    dataCollection
-      .getAllStudents()
-      .then((result) => res.render("students", { students: result }))
-      .catch((err) => res.status(500).send({ message: "no results" }));
-  }
-});
+// ------------------------------ Students ------------------------------ //
 
 app.get("/students/add", (req, res) => {
-  res.render("addStudent", { layout: "main" });
+  dataCollection
+    .getCourses()
+    .then((coursesData) => {
+      res.render("addStudent", { courses: coursesData, layout: "main" });
+    })
+    .catch(() => res.render("addStudent", { layout: "main" }));
+});
+
+app.get("/students/:studentId", (req, res) => {
+  let viewData = {};
+  dataCollection
+    .getStudentByNum(req.params.studentId)
+    .then((studentData) => {
+      if (studentData) {
+        viewData.student = studentData;
+        dataCollection
+          .getCourses()
+          .then((coursesData) => {
+            if (coursesData) {
+              viewData.courses = coursesData;
+            }
+            res.render("student", viewData);
+          })
+          .catch(() => res.render("student", viewData));
+      } else {
+        res.render("student", {});
+      }
+    })
+    .catch((err) => res.status(500).send({ message: "no results" }));
 });
 
 app.post("/student/update", (req, res) => {
@@ -105,27 +121,94 @@ app.post("/students/add", (req, res) => {
     );
 });
 
-app.get("/students/:studentId", (req, res) => {
+app.get("/students/delete/:studentId", (req, res) => {
   dataCollection
-    .getStudentByNum(req.params.studentId)
-    .then((result) => res.render("student", { student: result }))
+    .deleteStudentById(req.params.studentId)
+    .then((result) => {
+      res.redirect("/students");
+    })
     .catch((err) => res.status(500).send({ message: "no results" }));
+});
+
+// ------------------------------ Courses ------------------------------ //
+
+app.get("/courses/add", (req, res) => {
+  res.render("addCourse", { layout: "main" });
 });
 
 app.get("/courses", (req, res) => {
   dataCollection
     .getCourses()
-    .then((result) => res.render("courses", { courses: result }))
+    .then((result) => {
+      if (result.length > 0) {
+        res.render("courses", { courses: result });
+      } else {
+        res.render("courses", { message: "No results found" });
+      }
+    })
     .catch((err) => res.status(500).send({ message: "no results" }));
 });
 
 app.get("/courses/:courseId", (req, res) => {
   dataCollection
     .getCourseById(req.params.courseId)
-    .then((result) => res.render("course", { course: result }))
+    .then((result) => {
+      if (result == undefined) {
+        res.status(404).send("Course not found");
+      } else {
+        res.render("course", { course: result });
+      }
+    })
     .catch((err) => res.status(500).send({ message: "no results" }));
 });
 
+app.get("/courses/delete/:courseId", (req, res) => {
+  dataCollection
+    .deleteCourseById(req.params.courseId)
+    .then((result) => {
+      res.redirect("/courses");
+    })
+    .catch((err) => res.status(500).send({ message: "no results" }));
+});
+
+app.post("/courses/add", (req, res) => {
+  dataCollection
+    .addCourse(req.body)
+    .then((v) => res.redirect("/courses/" + v))
+    .catch((err) =>
+      res.status(500).send({ message: "Couldn't register course." }),
+    );
+});
+
+app.post("/courses/update", (req, res) => {
+  dataCollection.updateCourse(req.body).then(() => res.redirect("/courses"));
+});
+
+app.get("/students", (req, res) => {
+  if (req.query.course) {
+    dataCollection
+      .getStudentsByCourse(req.query.course)
+      .then((result) => {
+        if (result.length > 0) {
+          res.render("students", { students: result });
+        } else {
+          res.render("students", { message: "No results found" });
+        }
+      })
+      .catch((err) => res.status(500).send({ message: "no results" }));
+  } else {
+    dataCollection
+      .getAllStudents()
+      .then((result) => {
+        if (result.length > 0) {
+          res.render("students", { students: result });
+        } else {
+          res.render("students", { message: "No results found" });
+        }
+      })
+      .catch((err) => res.status(500).send({ message: "no results" }));
+  }
+});
 app.get("/", (req, res) => {
   res.render("home", { layout: "main" });
 });
